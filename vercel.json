@@ -8,11 +8,14 @@
   ],
   "routes": [
     {
-      "src": "/(.*)",
-      "dest": "/public/$1"
+      "handle": "filesystem"
     },
     {
-      "src": "/api/(.*)",
+      "src": "/",
+      "dest": "/public/login.html"
+    },
+    {
+      "src": "/(.*)",
       "dest": "/app.js"
     }
   ]
