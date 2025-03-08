@@ -1,0 +1,23 @@
+# WebStorm settings
+.idea/
+
+# Node.js dependencies
+node_modules/
+package-lock.json
+
+# Environment variables (Security reasons)
+.env
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+*.log
+
+# Temporary files
+.DS_Store  # macOS
+Thumbs.db  # Windows
+.vscode/  # If using VS Code
+
+classDiag.drawio

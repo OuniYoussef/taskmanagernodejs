@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Task List</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; }
+    .container { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+    .card { background: #f4f4f4; padding: 15px; border-radius: 10px; width: 60%; box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1); }
+    .task-list { width: 60%; margin-top: 20px; }
+    ul { list-style-type: none; padding: 0; }
+    li { background: #eee; margin: 5px 0; padding: 10px; border-radius: 5px; }
+    .deleted { text-decoration: line-through; color: red; }
+    input, button { margin: 5px; padding: 8px; width: 90%; }
+    label { font-weight: bold; display: block; margin-bottom: 5px; }
+  </style>
+</head>
+<body>
+<h1>Task List (Live Updates)</h1>
+
+<div class="container">
+  <!-- Notification Section -->
+  <div class="notifications">
+    <h2>Notifications</h2>
+    <ul id="notificationList"></ul>
+  </div>
+  <!-- Add Task Card -->
+  <div class="card">
+    <label>Add a Task</label>
+    <input type="text" id="newTaskTitle" placeholder="Enter task title">
+    <input type="text" id="newTaskDesc" placeholder="Enter task description (optional)">
+    <button onclick="createTask()">Add Task</button>
+  </div>
+
+  <!-- Update Task Card -->
+  <div class="card">
+    <label>Update a Task</label>
+    <input type="text" id="updateTaskId" placeholder="Task ID">
+    <input type="text" id="updateTaskTitle" placeholder="New Task Title">
+    <input type="text" id="updateTaskDesc" placeholder="New Task Description (optional)">
+    <button onclick="updateTask()">Update Task</button>
+  </div>
+
+  <!-- Delete Task Card -->
+  <div class="card">
+    <label>Delete a Task</label>
+    <input type="text" id="deleteTaskId" placeholder="Task ID">
+    <button onclick="deleteTask()">Delete Task</button>
+  </div>
+</div>
+
+<!-- Task List -->
+<ul id="taskList" class="task-list"></ul>
+
+<script>
+  let socket;
+
+  function connectWebSocket() {
+    if (!socket) {
+      socket = io();
+      console.log("WebSocket connected!");
+
+      socket.on("taskCreated", (task) => updateTaskList(task, "created"));
+      socket.on("taskUpdated", (task) => updateTaskList(task, "updated"));
+      socket.on("taskDeleted", (taskId) => updateTaskList({ _id: taskId }, "deleted"));
+      socket.on("notification", (data) => displayNotification(data.message));
+    }
+  }
+  function displayNotification(message) {
+    const notificationList = document.getElementById("notificationList");
+    const li = document.createElement("li");
+    li.textContent = message;
+    notificationList.appendChild(li);
+
+    // Auto-remove notifications after 5 seconds
+    setTimeout(() => li.remove(), 5000);
+  }
+  function updateTaskList(task, action) {
+    console.log(`Task ${action}:`, task);
+    const taskList = document.getElementById("taskList");
+    let li = document.getElementById(task._id);
+
+    if (action === "created") {
+      li = document.createElement("li");
+      li.id = task._id;
+      li.textContent = `ID: ${task._id} | ${task.title || "No Title"} - ${task.description || "No Description"} - ${task.status}`;
+      taskList.appendChild(li);
+    } else if (li) {
+      if (action === "updated") {
+        li.textContent = `ID: ${task._id} | ${task.title || "No Title"} - ${task.description || "No Description"} - ${task.status}`;
+      } else if (action === "deleted") {
+        li.classList.add("deleted");
+        li.textContent += " (Deleted)";
+      }
+    }
+  }
+
+  function checkAuth() {
+    fetch("/api/auth-check", { credentials: "include" })
+            .then(res => res.json())
+            .then(data => {
+              if (data.authenticated) {
+                connectWebSocket();
+                fetchTasks();
+              } else {
+                window.location.href = "/login.html";
+              }
+            })
+            .catch(err => console.error("Auth check failed:", err));
+  }
+
+  function fetchTasks() {
+    fetch("/api/tasks")
+            .then(res => res.json())
+            .then(tasks => {
+              tasks.forEach(task => updateTaskList(task, "created"));
+            })
+            .catch(err => console.error("Error loading tasks:", err));
+  }
+
+  function createTask() {
+    const taskTitleInput = document.getElementById("newTaskTitle");
+    const taskDescInput = document.getElementById("newTaskDesc");
+
+    if (!taskTitleInput || !taskDescInput) {
+      console.error("Task input fields not found!");
+      return;
+    }
+
+    const taskTitle = taskTitleInput.value;
+    const taskDesc = taskDescInput.value || "No Description";
+
+    if (!taskTitle) return alert("Enter a task title");
+
+    fetch("/api/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: taskTitle, description: taskDesc, status: "in progress" })
+    })
+            .then(res => res.json())
+            .then(task => {
+              console.log("Task Created:", task);
+              resetFields(["newTaskTitle", "newTaskDesc"]);
+            })
+            .catch(err => console.error("Error creating task:", err));
+  }
+
+  function updateTask() {
+    const taskId = document.getElementById("updateTaskId").value;
+    const taskTitle = document.getElementById("updateTaskTitle").value;
+    const taskDesc = document.getElementById("updateTaskDesc").value;
+
+    if (!taskId || !taskTitle) {
+      return alert("Enter task ID and new title");
+    }
+
+    fetch(`/api/tasks/${taskId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: taskTitle, description: taskDesc })
+    })
+            .then(res => res.json())
+            .then(task => {
+              console.log("Task Updated:", task);
+              resetFields(["updateTaskId", "updateTaskTitle", "updateTaskDesc"]);
+            })
+            .catch(err => console.error("Error updating task:", err));
+  }
+
+  function deleteTask() {
+    const taskId = document.getElementById("deleteTaskId").value;
+    if (!taskId) return alert("Enter task ID");
+
+    fetch(`/api/tasks/${taskId}`, { method: "DELETE" })
+            .then(res => res.json())
+            .then(() => {
+              console.log("Task Deleted:", taskId);
+              resetFields(["deleteTaskId"]);
+            })
+            .catch(err => console.error("Error deleting task:", err));
+  }
+
+  function resetFields(fieldIds) {
+    fieldIds.forEach(id => {
+      const input = document.getElementById(id);
+      if (input) input.value = "";
+    });
+  }
+
+  window.onload = function () {
+    checkAuth();
+  };
+</script>
+</body>
+</html>
