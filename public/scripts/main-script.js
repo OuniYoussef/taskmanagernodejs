@@ -86,8 +86,9 @@ function buildTaskHTML(task) {
             class="form-select d-inline-block w-auto"
             onchange="updateTaskUser('${task._id}', this.value)"
           >
+            <option value="" ${!task.assignedUser ? 'selected' : ''}>-</option>
             ${users.map(u => `
-              <option value="${u._id}" ${task.assignedUser == u._id ? 'selected' : ''}>
+              <option value="${u._id}" ${task.assignedUser === u._id ? 'selected' : ''}>
                 ${u.username}
               </option>`).join('')}
           </select>
