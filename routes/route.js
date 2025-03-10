@@ -8,11 +8,7 @@ const router = express.Router();
 router.post("/signup", createUser);
 router.post("/login", login);
 router.get("/logout", (req, res) => {
-    res.clearCookie("token", {
-        httpOnly: true,  // Ensures it matches how the cookie was set
-        sameSite: "Strict",
-        path: "/",
-    });
+    res.clearCookie("token");
     res.json({ message: "Logged out successfully" });
 });
 
