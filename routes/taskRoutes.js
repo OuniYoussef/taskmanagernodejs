@@ -2,9 +2,24 @@ const express = require('express');
 const mongoose = require('mongoose');
 const router = express.Router();
 const Task = require('../database/models/task');
+const User = require('../database/models/user');
 
 // Helper function to validate task status
 const isValidStatus = (status) => ['in progress', 'completed', 'cancelled'].includes(status);
+
+
+router.get('/stats', async (req, res) => {
+    try {
+        const totalTasks = await Task.countDocuments();
+        const inProgress = await Task.countDocuments({ status: 'in progress' });
+        const completed = await Task.countDocuments({ status: 'completed' });
+
+        res.json({ totalTasks, inProgress, completed });
+    } catch (error) {
+        res.status(500).json({ message: "Error fetching task stats", error });
+    }
+});
+
 
 
 router.get('/', async (req, res) => {
@@ -40,28 +55,99 @@ router.post('/', async (req, res) => {
     }
 });
 
-// Update Task
 router.put('/:id', async (req, res) => {
     try {
         if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
             return res.status(400).json({ message: "Invalid Task ID" });
         }
 
-        if (!req.body.title) {
-            return res.status(400).json({ message: "Task title is required" });
+        // 1. Fetch the OLD task to compare assignedUser
+        const currentTask = await Task.findById(req.params.id);
+        if (!currentTask) {
+            return res.status(404).json({ message: "Task not found" });
         }
 
-        const updatedTask = await Task.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
-        if (!updatedTask) return res.status(404).json({ message: "Task not found" });
+        // 2. Update the task
+        const updatedTask = await Task.findByIdAndUpdate(
+            req.params.id,
+            req.body,  // update all fields from the request body
+            { new: true, runValidators: true }
+        );
 
+        if (!updatedTask) {
+            return res.status(404).json({ message: "Task not found after update" });
+        }
+
+        // 3. Emit 'taskUpdated' so the UI re-renders
         if (global.io) {
             global.io.emit('taskUpdated', updatedTask);
-            global.io.emit('notification', { message: `Task updated: ${updatedTask.title}` }); // 🔹 Notification event
+
+            // 4. If assignedUser changed, emit a custom user-change notification
+            if (req.body.assignedUser && req.body.assignedUser != currentTask.assignedUser) {
+                let oldUserName = 'Unassigned';
+                let newUserName = 'Unassigned';
+
+                // If there was an old user, fetch their username
+                if (currentTask.assignedUser) {
+                    const oldUserDoc = await User.findById(currentTask.assignedUser);
+                    if (oldUserDoc) oldUserName = oldUserDoc.username;
+                }
+
+                // Fetch the new user's username
+                const newUserDoc = await User.findById(req.body.assignedUser);
+                if (newUserDoc) newUserName = newUserDoc.username;
+
+                global.io.emit('notification', {
+                    message: `Assigned user changed for "${updatedTask.title}": ${oldUserName} -> ${newUserName}`
+                });
+            } else {
+                // Otherwise, emit the standard update notification
+                global.io.emit('notification', {
+                    message: `Task updated: ${updatedTask.title}`
+                });
+            }
         }
 
         res.status(200).json(updatedTask);
     } catch (error) {
         console.error("Error updating task:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+});
+// UPDATE task status only
+// e.g., triggered by a dropdown change
+router.put('/:id/status', async (req, res) => {
+    try {
+        const { status } = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({ message: "Invalid Task ID" });
+        }
+
+        if (!isValidStatus(status)) {
+            return res.status(400).json({ message: "Invalid status" });
+        }
+
+        const updatedTask = await Task.findByIdAndUpdate(
+            req.params.id,
+            { status },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedTask) {
+            return res.status(404).json({ message: "Task not found" });
+        }
+
+        if (global.io) {
+            global.io.emit('taskUpdated', updatedTask);
+            global.io.emit('notification', {
+                message: `Task status updated: ${updatedTask.title} -> ${status}`,
+            });
+        }
+
+        res.status(200).json(updatedTask);
+    } catch (error) {
+        console.error("Error updating task status:", error);
         res.status(500).json({ message: "Internal server error" });
     }
 });

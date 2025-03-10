@@ -1,0 +1,31 @@
+/* Notifications: keep these custom styles for the top-left corner popups */
+#notificationList {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+  z-index: 9999;
+  max-width: 250px;
+}
+#notificationList li {
+  background: #fde073;
+  border: 1px solid #fbd35d;
+  border-radius: 5px;
+  padding: 10px;
+  margin-bottom: 5px;
+  color: #333;
+  box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.1);
+}
+
+/* If you want a different background color for the whole page, keep this: */
+body {
+  background-color: #f9f9f9;
+}
+
+/* Optional: style for 'deleted' tasks */
+.deleted {
+  text-decoration: line-through;
+  color: red;
+}

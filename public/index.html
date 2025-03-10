@@ -1,197 +1,97 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Task List</title>
+
+  <!-- Bootstrap CSS -->
+  <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+  />
+  <link rel="stylesheet" href="stylesheets/index-stylesheet.css">
+
+
+  <!-- Socket.io -->
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; }
-    .container { display: flex; flex-direction: column; align-items: center; gap: 20px; }
-    .card { background: #f4f4f4; padding: 15px; border-radius: 10px; width: 60%; box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1); }
-    .task-list { width: 60%; margin-top: 20px; }
-    ul { list-style-type: none; padding: 0; }
-    li { background: #eee; margin: 5px 0; padding: 10px; border-radius: 5px; }
-    .deleted { text-decoration: line-through; color: red; }
-    input, button { margin: 5px; padding: 8px; width: 90%; }
-    label { font-weight: bold; display: block; margin-bottom: 5px; }
+
   </style>
 </head>
 <body>
-<h1>Task List (Live Updates)</h1>
-
-<div class="container">
-  <!-- Notification Section -->
-  <div class="notifications">
-    <h2>Notifications</h2>
-    <ul id="notificationList"></ul>
+<!-- Logout Button (Top Right) -->
+<nav class="navbar navbar-light bg-light">
+  <div class="container-fluid">
+    <span class="navbar-brand mb-0 h1">Task List (Live Updates)</span>
+    <button class="btn btn-danger" onclick="logout()">Logout</button>
   </div>
-  <!-- Add Task Card -->
-  <div class="card">
-    <label>Add a Task</label>
-    <input type="text" id="newTaskTitle" placeholder="Enter task title">
-    <input type="text" id="newTaskDesc" placeholder="Enter task description (optional)">
-    <button onclick="createTask()">Add Task</button>
+</nav>
+
+<!-- Container for entire page -->
+<div class="container py-4">
+
+  <h1 class="text-center mb-4">Task List (Live Updates)</h1>
+
+  <!-- Row for Add a Task & Update a Task side by side -->
+  <div class="row g-4">
+    <!-- ADD TASK -->
+    <div class="col-md-6">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title">Add a Task</h5>
+          <div class="mb-3">
+            <label for="newTaskTitle" class="form-label">Task Title</label>
+            <input type="text" id="newTaskTitle" class="form-control" placeholder="Enter task title" />
+          </div>
+          <div class="mb-3">
+            <label for="newTaskDesc" class="form-label">Description (optional)</label>
+            <input type="text" id="newTaskDesc" class="form-control" placeholder="Enter task description" />
+          </div>
+          <button class="btn btn-primary w-100" onclick="createTask()">Add Task</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- UPDATE TASK -->
+    <div class="col-md-6">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title">Update a Task</h5>
+          <div class="mb-3">
+            <label for="updateTaskId" class="form-label">Task ID</label>
+            <input type="text" id="updateTaskId" class="form-control" placeholder="Task ID" />
+          </div>
+          <div class="mb-3">
+            <label for="updateTaskTitle" class="form-label">New Task Title</label>
+            <input type="text" id="updateTaskTitle" class="form-control" placeholder="New Task Title" />
+          </div>
+          <div class="mb-3">
+            <label for="updateTaskDesc" class="form-label">New Description</label>
+            <input type="text" id="updateTaskDesc" class="form-control" placeholder="New Task Description" />
+          </div>
+          <button class="btn btn-warning w-100" onclick="updateTask()">Update Task</button>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <!-- Update Task Card -->
-  <div class="card">
-    <label>Update a Task</label>
-    <input type="text" id="updateTaskId" placeholder="Task ID">
-    <input type="text" id="updateTaskTitle" placeholder="New Task Title">
-    <input type="text" id="updateTaskDesc" placeholder="New Task Description (optional)">
-    <button onclick="updateTask()">Update Task</button>
+  <!-- Tasks List Section -->
+  <div class="mt-5">
+    <h2 class="mb-3">Tasks</h2>
+    <ul id="taskList" class="list-unstyled"></ul>
   </div>
 
-  <!-- Delete Task Card -->
-  <div class="card">
-    <label>Delete a Task</label>
-    <input type="text" id="deleteTaskId" placeholder="Task ID">
-    <button onclick="deleteTask()">Delete Task</button>
-  </div>
-</div>
+  <!-- Notification list (custom position in top-left corner) -->
+  <ul id="notificationList"></ul>
 
-<!-- Task List -->
-<ul id="taskList" class="task-list"></ul>
+</div><!-- /.container -->
 
-<script>
-  let socket;
 
-  function connectWebSocket() {
-    if (!socket) {
-      socket = io();
-      console.log("WebSocket connected!");
+<script src="scripts/main-script.js"></script>
 
-      socket.on("taskCreated", (task) => updateTaskList(task, "created"));
-      socket.on("taskUpdated", (task) => updateTaskList(task, "updated"));
-      socket.on("taskDeleted", (taskId) => updateTaskList({ _id: taskId }, "deleted"));
-      socket.on("notification", (data) => displayNotification(data.message));
-    }
-  }
-  function displayNotification(message) {
-    const notificationList = document.getElementById("notificationList");
-    const li = document.createElement("li");
-    li.textContent = message;
-    notificationList.appendChild(li);
-
-    // Auto-remove notifications after 5 seconds
-    setTimeout(() => li.remove(), 5000);
-  }
-  function updateTaskList(task, action) {
-    console.log(`Task ${action}:`, task);
-    const taskList = document.getElementById("taskList");
-    let li = document.getElementById(task._id);
-
-    if (action === "created") {
-      li = document.createElement("li");
-      li.id = task._id;
-      li.textContent = `ID: ${task._id} | ${task.title || "No Title"} - ${task.description || "No Description"} - ${task.status}`;
-      taskList.appendChild(li);
-    } else if (li) {
-      if (action === "updated") {
-        li.textContent = `ID: ${task._id} | ${task.title || "No Title"} - ${task.description || "No Description"} - ${task.status}`;
-      } else if (action === "deleted") {
-        li.classList.add("deleted");
-        li.textContent += " (Deleted)";
-      }
-    }
-  }
-
-  function checkAuth() {
-    fetch("/api/auth-check", { credentials: "include" })
-            .then(res => res.json())
-            .then(data => {
-              if (data.authenticated) {
-                connectWebSocket();
-                fetchTasks();
-              } else {
-                window.location.href = "/login.html";
-              }
-            })
-            .catch(err => console.error("Auth check failed:", err));
-  }
-
-  function fetchTasks() {
-    fetch("/api/tasks")
-            .then(res => res.json())
-            .then(tasks => {
-              tasks.forEach(task => updateTaskList(task, "created"));
-            })
-            .catch(err => console.error("Error loading tasks:", err));
-  }
-
-  function createTask() {
-    const taskTitleInput = document.getElementById("newTaskTitle");
-    const taskDescInput = document.getElementById("newTaskDesc");
-
-    if (!taskTitleInput || !taskDescInput) {
-      console.error("Task input fields not found!");
-      return;
-    }
-
-    const taskTitle = taskTitleInput.value;
-    const taskDesc = taskDescInput.value || "No Description";
-
-    if (!taskTitle) return alert("Enter a task title");
-
-    fetch("/api/tasks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: taskTitle, description: taskDesc, status: "in progress" })
-    })
-            .then(res => res.json())
-            .then(task => {
-              console.log("Task Created:", task);
-              resetFields(["newTaskTitle", "newTaskDesc"]);
-            })
-            .catch(err => console.error("Error creating task:", err));
-  }
-
-  function updateTask() {
-    const taskId = document.getElementById("updateTaskId").value;
-    const taskTitle = document.getElementById("updateTaskTitle").value;
-    const taskDesc = document.getElementById("updateTaskDesc").value;
-
-    if (!taskId || !taskTitle) {
-      return alert("Enter task ID and new title");
-    }
-
-    fetch(`/api/tasks/${taskId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: taskTitle, description: taskDesc })
-    })
-            .then(res => res.json())
-            .then(task => {
-              console.log("Task Updated:", task);
-              resetFields(["updateTaskId", "updateTaskTitle", "updateTaskDesc"]);
-            })
-            .catch(err => console.error("Error updating task:", err));
-  }
-
-  function deleteTask() {
-    const taskId = document.getElementById("deleteTaskId").value;
-    if (!taskId) return alert("Enter task ID");
-
-    fetch(`/api/tasks/${taskId}`, { method: "DELETE" })
-            .then(res => res.json())
-            .then(() => {
-              console.log("Task Deleted:", taskId);
-              resetFields(["deleteTaskId"]);
-            })
-            .catch(err => console.error("Error deleting task:", err));
-  }
-
-  function resetFields(fieldIds) {
-    fieldIds.forEach(id => {
-      const input = document.getElementById(id);
-      if (input) input.value = "";
-    });
-  }
-
-  window.onload = function () {
-    checkAuth();
-  };
-</script>
+<!-- Optionally, include Bootstrap JS for advanced features like modals, dropdowns, etc. -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
