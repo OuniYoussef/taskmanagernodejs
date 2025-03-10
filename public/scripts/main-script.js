@@ -252,11 +252,14 @@ window.onload = function () {
 
 function logout() {
     fetch('/api/logout', {
-        method: 'POST',
-        credentials: 'include'
+        method: 'GET',
+        credentials: 'include'  // Ensures cookies are sent
     })
-        .then(() => {
-            window.location.href = '/login.html';
+        .then(response => response.json())
+        .then(data => {
+            console.log(data.message);  // Debugging
+            window.location.href = '/login.html';  // Redirect user to login page
         })
         .catch(err => console.error('Logout failed:', err));
 }
+
