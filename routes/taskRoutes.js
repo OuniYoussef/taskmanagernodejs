@@ -3,10 +3,51 @@ const mongoose = require('mongoose');
 const router = express.Router();
 const Task = require('../database/models/task');
 const User = require('../database/models/user');
-
+const path = require('path');
 // Helper function to validate task status
 const isValidStatus = (status) => ['in progress', 'completed', 'cancelled'].includes(status);
 
+
+//dashbord
+router.get('/dashboard', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'public', 'dash.html'));
+});
+
+
+
+
+router.get('/totalTasks', async (req, res) => {
+    try {
+        const tasks = await Task.find();
+        res.json(tasks);
+    } catch (error) {
+        console.error('Erreur lors de la récupération des tâches :', error);
+        res.status(500).json({ message: 'Erreur lors de la récupération des tâches' });
+    }
+});
+
+// Route pour récupérer les tâches en cours
+router.get('/inProgress', async (req, res) => {
+    try {
+        const tasks = await Task.find({ status: 'in progress' });
+        res.json(tasks);
+    } catch (error) {
+        console.error('Erreur lors de la récupération des tâches en cours :', error);
+        res.status(500).json({ message: 'Erreur lors de la récupération des tâches en cours' });
+    }
+});
+
+
+// Route pour récupérer les tâches complétées
+router.get('/completed', async (req, res) => {
+    try {
+        const tasks = await Task.find({ status: 'completed' });
+        res.json(tasks);
+    } catch (error) {
+        console.error('Erreur lors de la récupération des tâches complétées :', error);
+        res.status(500).json({ message: 'Erreur lors de la récupération des tâches complétées' });
+    }
+});
 
 router.get('/stats', async (req, res) => {
     try {

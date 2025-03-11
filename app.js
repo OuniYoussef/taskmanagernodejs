@@ -32,10 +32,17 @@ app.get("/api/auth-check", (req, res) => {
         return res.json({ authenticated: false });
     }
 });
-app.get("/", verifyToken, (req, res) => {
-    res.sendFile(path.join(__dirname, "public/index.html"));
-});
 
+// Secure routes
+app.use((req, res, next) => {
+    const publicRoutes = ["/login", "/register","/api/login", "/api/signup"];
+
+    if (publicRoutes.includes(req.path)) {
+        return next(); // Allow public access
+    }
+
+    verifyToken(req, res, next); // Protect all other routes
+});
 
 
 

@@ -118,13 +118,13 @@ function loadUsers() {
 }
 
 // Check if user is authenticated, then connect websockets & fetch tasks
-function checkAuth() {
+async function checkAuth() {
     fetch('/api/auth-check', { credentials: 'include' })
         .then(res => res.json())
-        .then(data => {
+        .then(async data => {
             if (data.authenticated) {
                 connectWebSocket();
-                fetchTasks();
+                await fetchTasks();
             } else {
                 window.location.href = '/login.html';
             }
@@ -136,8 +136,8 @@ function checkAuth() {
 function fetchTasks() {
     fetch('/api/tasks')
         .then(res => res.json())
-        .then(tasks => {
-            tasks.forEach(task => updateTaskList(task, 'created'));
+        .then(async tasks => {
+            await tasks.forEach(task => updateTaskList(task, 'created'));
         })
         .catch(err => console.error('Error loading tasks:', err));
 }
@@ -245,9 +245,10 @@ function resetFields(fieldIds) {
 }
 
 // On page load
-window.onload = function () {
-    checkAuth();  // if authenticated => connectWebSocket(), fetchTasks()
-    loadUsers();  // fetch the user list
+window.onload = async function () {
+    await checkAuth();  // Ensures the user is authenticated
+    await loadUsers();  // Load users first before fetching tasks
+    await fetchTasks();  // Now fetch and render tasks after users are loaded
 };
 
 function logout() {
@@ -262,4 +263,3 @@ function logout() {
         })
         .catch(err => console.error('Logout failed:', err));
 }
-
